@@ -46,8 +46,8 @@ int value3 = 0;
 int value4 = 0;
 int value5 = 0;
 
-int thres = 300;
-
+int thres = 500;
+int baseSpeed = 100;
 int map_arr[6][6] = {
   { 0, 0, 0, 0, 0, CP },
   { 0, 0, 0, 0, TP, 0 },
@@ -98,7 +98,7 @@ void read_sensor() {
 }
 
 bool check_box() {
-  return 0;
+  // return 0;
   digitalWrite(TRIG, LOW);
   delayMicroseconds(2);
   digitalWrite(TRIG, HIGH);
@@ -106,41 +106,99 @@ bool check_box() {
   digitalWrite(TRIG, LOW);
 
   long duration = pulseIn(ECHO, HIGH);
-  int distance = duration * 0.034 / 2;
-
-  if (distance < 10) {
+  long distance = duration / 29 / 2;
+  Serial.println(distance);
+  delay(350);
+  if (distance < 25) {
     return true;
   } else {
     return false;
   }
+
 }
+
+
+// int move() {
+//   read_sensor();
+//   if (value3 < thres && value2 > thres && value4 > thres) {
+//     forward();
+//     return 1;
+//   }
+
+//   // ↩️ เบนซ้าย (เส้นไปทางซ้าย)
+//   else if (value2 < thres && value3 > thres) {
+//     left();
+//     return 1;
+//   }
+
+//   // ↪️ เบนขวา (เส้นไปทางขวา)
+//   else if (value4 < thres && value3 > thres) {
+//     right();
+//     return 1;
+//   }
+
+//   // ⚫ ถึงจุดตัด (ทุกตัวเจอดำ) → หยุด
+//   else if (value1 < thres && value2 < thres && value3 < thres && value4 < thres && value5 < thres) {
+//     // delay(50);
+//     stop();
+//     return 0;  // บอกว่าเจอทางแยก
+//   }
+// }
 
 int move() {
+  // static float Kp = 0.23;
+  static float Kp = 0.23; // HW
+  static float Kd = 0.55;
+  static float Ki = 0.0;
+
+  static float lastError = 0;
+  static float integral = 0;
+
+  int correctionScale = 45;
   read_sensor();
-  if (value3 < thres && value2 > thres && value4 > thres) {
-    forward();
-    return 1;
-  }
 
-  // ↩️ เบนซ้าย (เส้นไปทางซ้าย)
-  else if (value2 < thres && value3 > thres) {
-    left();
-    return 1;
-  }
-
-  // ↪️ เบนขวา (เส้นไปทางขวา)
-  else if (value4 < thres && value3 > thres) {
-    right();
-    return 1;
-  }
-
-  // ⚫ ถึงจุดตัด (ทุกตัวเจอดำ) → หยุด
-  else if (value1 < thres && value2 < thres && value3 < thres && value4 < thres && value5 < thres) {
-    // delay(50);
+  // ⚫ Check intersection (all black)
+  if (value1 < thres && value2 < thres && value3 < thres && value4 < thres && value5 < thres) {
     stop();
-    return 0;  // บอกว่าเจอทางแยก
+    return 0;
   }
+
+  int sensorValues[5] = { value1, value2, value3, value4, value5 };
+  int weights[5] = { -2, -1, 0, 1, 2 };
+
+  float error = 0;
+  float sum = 0;
+
+  for (int i = 0; i < 5; i++) {
+    int val = (sensorValues[i] < thres) ? 1 : 0;
+    error += weights[i] * val;
+    sum += val;
+  }
+
+  if (sum == 0) {
+    analogWrite(enA, 0);
+    analogWrite(enB, 0);
+    return 1;
+  }
+
+  integral += error;
+  float derivative = error - lastError;
+  float output = Kp * error + Ki * integral + Kd * derivative;
+  lastError = error;
+
+  int speedB = constrain(baseSpeed - output * correctionScale, 0, 255);
+  int speedA = constrain(baseSpeed + output * correctionScale, 0, 255);
+
+  digitalWrite(inA, 0);
+  digitalWrite(inB, 1);
+  digitalWrite(inC, 0);
+  digitalWrite(inD, 1);
+  analogWrite(enA, speedA);
+  analogWrite(enB, speedB);
+
+  return 1;
 }
+
 
 void forward() {
   // Move both motors forward
@@ -177,9 +235,11 @@ void backward() {
   digitalWrite(inB, 0);
   digitalWrite(inC, 1);
   digitalWrite(inD, 0);
-  analogWrite(enA, 120);
-  analogWrite(enB, 120);
-  delay(150);
+  for (int i = 0; i < 20; i++) {
+    analogWrite(enA, 120 - i * 5);
+    analogWrite(enB, 120 - i * 5);
+    delay(30);
+  }
   analogWrite(enA, 0);
   analogWrite(enB, 0);
 }
@@ -189,10 +249,10 @@ void stop() {
   digitalWrite(inB, 1);
   digitalWrite(inC, 0);
   digitalWrite(inD, 1);
-  for (int i=0; i<18; i++) {
-    analogWrite(enA, 120-i*5);
-    analogWrite(enB, 120-i*5);
-    delay(10);
+  for (int i = 0; i < 20; i++) {
+    analogWrite(enA, 120 - i * 5);
+    analogWrite(enB, 120 - i * 5);
+    delay(22);
   }
   // digitalWrite(inA, 0);
   // digitalWrite(inB, 1);
@@ -219,8 +279,7 @@ void stop() {
   // Uturn();
 }
 
-void bae_sai() { 
-
+void bae_sai() {
 }
 
 void turnR() {
@@ -230,8 +289,7 @@ void turnR() {
   digitalWrite(inD, 1);
   read_sensor();
   int black = 0;
-  if (value3 > thres){ 
-
+  if (value3 > thres) {
   }
   while (value3 < thres) {
     read_sensor();
@@ -261,15 +319,13 @@ void turnL() {
     read_sensor();
     analogWrite(enA, 120);
     analogWrite(enB, 120);
-    Serial.println("Start turn left");
   }
   while (1) {
     read_sensor();
     analogWrite(enA, 90);
     analogWrite(enB, 90);
-    Serial.println("Turning left");
     if (value2 > thres && value3 < thres) {
-    // if (value3 < thres) {
+      // if (value3 < thres) {
       break;
     }
   }
@@ -302,6 +358,7 @@ void turn(int target_dir) {
 
 void push(int target_dir) {
   turn(target_dir);
+  baseSpeed = 130;
   while (!move()) {}
   while (move()) {}
 
@@ -310,11 +367,12 @@ void push(int target_dir) {
   while (true) {
     move();
     // Add a timeout safety (e.g., 5 seconds)
-    if (millis() - push_start > 5000) {
+    if (millis() - push_start > 600) {
       Serial.println("Push timeout — stopping");
       break;
     }
   }
+  baseSpeed = 100;
 
   backward();
   // stop()
@@ -324,10 +382,8 @@ void push(int target_dir) {
 void walker(int target_dir) {
   turn(target_dir);
   while (!move()) {
-    // Serial.println("INTERSECT");
   }
   while (move()) {
-    // Serial.println("MOVING ON STRAIGHT LINE");
   }
 
   my_x += dx[target_dir];
@@ -349,7 +405,7 @@ void go_to_checkpoint() {
     Serial.print("Step : ");
     Serial.print(path_len);
     Serial.print(", ");
-    Serial.println(path[path_len-1]);
+    Serial.println(path[path_len - 1]);
   }
 
   Serial.println("Checkpoint reached!");
@@ -377,6 +433,7 @@ void go_home() {
 }
 
 int push_path[] = { L, L, PUSH_DOWN, R, D, D, L, L, U, PUSH_RIGHT, D, R, PUSH_UP, PUSH_UP, L, U, PUSH_RIGHT };
+// int push_path[] = {PUSH_DOWN, R, D, D, L, L, U, PUSH_RIGHT, D, R, PUSH_UP, PUSH_UP, L, U, PUSH_RIGHT };
 int push_path_len = sizeof(push_path) / sizeof(push_path[0]);
 
 int back_path[] = { D, D, D, L, L };
@@ -385,11 +442,14 @@ int back_path_len = sizeof(back_path) / sizeof(back_path[0]);
 void push_to_target() {
   walker((path[path_len - 1] == R) ? L : D);
   walker((path[path_len - 2] == R) ? L : D);
-
+  // cur_dir = D;
   for (int i = 0; i < push_path_len; i++) {
     int dir = push_path[i];
-
-    if (path < 10) {
+    Serial.print("Current dir : ");
+    Serial.println(cur_dir);
+    Serial.print("Target dir : ");
+    Serial.println(dir);
+    if (dir < 10) {
       walker(dir);
     } else {
       push(dir - 10);
@@ -417,6 +477,8 @@ void setup() {
   pinMode(inD, OUTPUT);
   pinMode(enA, OUTPUT);
   pinMode(enB, OUTPUT);
+  pinMode(TRIG, OUTPUT);
+  pinMode(ECHO, INPUT);
   go_to_checkpoint();
   // go_home();
   push_to_target();
@@ -424,4 +486,7 @@ void setup() {
 }
 
 void loop() {
+  // move();
+  // check_box();
+  // digitalWrite(TRIG,HIGH);
 }
