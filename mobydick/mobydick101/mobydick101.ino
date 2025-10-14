@@ -48,7 +48,7 @@ int value4 = 0;
 int value5 = 0;
 
 int thres = 450;
-int baseSpeed = 140;
+int baseSpeed = 135;
 int map_arr[6][6] = {
   { 0, 0, 0, 0, 0, CP },
   { 0, 0, 0, 0, TP, 0 },
