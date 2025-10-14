@@ -48,7 +48,7 @@ int value4 = 0;
 int value5 = 0;
 
 int thres = 450;
-int baseSpeed = 100;
+int baseSpeed = 110;
 int map_arr[6][6] = {
   { 0, 0, 0, 0, 0, CP },
   { 0, 0, 0, 0, TP, 0 },
@@ -298,21 +298,18 @@ void turnR() {
   digitalWrite(inB, 0);
   digitalWrite(inC, 0);
   digitalWrite(inD, 1);
+  analogWrite(enA, 100);
+  analogWrite(enB, 100);
+  delay(150);
   read_sensor();
     while (value3 > thres && (value2 < thres || value1 < thres)) {
     read_sensor();
-    analogWrite(enA, 100);
-    analogWrite(enB, 100);
   }
   while (value3 < thres) {
     read_sensor();
-    analogWrite(enA, 100); //100
-    analogWrite(enB, 100);
   }
   while (1) {
     read_sensor();
-    analogWrite(enA, 100);
-    analogWrite(enB, 100);
     if (value3 < thres && value2 > thres) {
       break;
     }
@@ -327,21 +324,18 @@ void turnL() {
   digitalWrite(inB, 1);
   digitalWrite(inC, 1);
   digitalWrite(inD, 0);
+  analogWrite(enA, 100);
+  analogWrite(enB, 100);
+  delay(150);
   read_sensor();
   while (value3 > thres && (value4 < thres || value5 < thres)) {
     read_sensor();
-    analogWrite(enA, 100);
-    analogWrite(enB, 100);
   }
   while (value3 < thres) {
     read_sensor();
-    analogWrite(enA, 100);
-    analogWrite(enB, 100);
   }
   while (1) {
     read_sensor();
-    analogWrite(enA, 100);
-    analogWrite(enB, 100);
     if (value4 > thres && value3 < thres) {
       // if (value3 < thres) {
       break;
@@ -376,12 +370,13 @@ void turn(int target_dir) {
 
 void push(int target_dir) {
   turn(target_dir);
-  baseSpeed = 130;
+  baseSpeed = 120;
   while (!move()) {}
   while (move()) {}
 
   unsigned long push_start = millis();
 
+  baseSpeed = 140;
   while (true) {
     move();
     // Add a timeout safety (e.g., 5 seconds)
@@ -390,7 +385,7 @@ void push(int target_dir) {
       break;
     }
   }
-  baseSpeed = 100;
+  baseSpeed = 110;
 
   backward();
   // stop()
@@ -458,10 +453,10 @@ int back_path[] = { D, D, D, L, L };
 int back_path_len = sizeof(back_path) / sizeof(back_path[0]);
 
 void push_to_target() {
-  walker((path[path_len - 1] == R) ? L : D);
-  walker((path[path_len - 2] == R) ? L : D);
-  // walker(D);
-  // walker(L);
+  // walker((path[path_len - 1] == R) ? L : D);
+  // walker((path[path_len - 2] == R) ? L : D);
+  walker(D);
+  walker(L);
   for (int i = 0; i < push_path_len; i++) {
     int dir = push_path[i];
     Serial.print("Current dir : ");
@@ -503,10 +498,10 @@ void setup() {
   pinMode(buzzer,OUTPUT);
   digitalWrite(buzzer, HIGH);
 
-  bep();
-  go_to_checkpoint();
+  // bep();
+  // go_to_checkpoint();
   // go_home();
-  bep(); bep();
+  // bep(); bep();
   push_to_target();
   back_from_target();
   bep(); bep(); bep();
